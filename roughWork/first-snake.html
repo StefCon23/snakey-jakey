@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html>
+<head>
+<!--
+--	first-snake.html
+--
+--	first snake incarnation
+--	based on:
+--		https://www.w3schools.com/graphics/game_intro.asp
+--
+--	15 May 2017
+--		file created
+--		creating second snake file
+--			this version, as is, has the following fucked:
+--				grid position and drawing
+--				snake position, drawing, own body hit detection
+--					corners etc
+--				apple position, size, colour, etc.
+--			in second file will do:
+--				put menu / border on top
+--				sprite in middle (double size?)
+--
+--	Conor Stefanini
+-->
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta charset="utf-8"/>
+<style>
+canvas {
+    border:1px solid #d3d3d3;
+    background-color: #f1f1f1;
+}
+</style>
+<img id="snake-0" src="images/snake-sprite_0.gif" alt="doin good">
+<img id="snake-1" src="images/snake-sprite_1.gif" alt="alright">
+<img id="snake-tongue" src="images/snake-sprite_tongue.gif" alt="yeah">
+<img id="snake-dead" src="images/snake-sprite_x-eyes-extreme.gif" alt="ahh">
+</head>
+<body onload="startGame()">
+<script>
+
+/*
+**	variables
+*/
+
+var myBigSnake;
+var myApple;
+var myScore;
+
+var w = 480;
+var h = 360;
+var ground = h - 20;
+var gridSizes = 10;
+//var snakeRad = 8;	//	make snakeRad add up to 10 with a 1px border
+var snakeRad = gridSizes - (gridSizes / 5);
+
+
+/*
+**	game functions
+*/
+
+function startGame() {
+    
+	myBigSnake = new snakeDraw(snakeRad, snakeRad, "#000000", 
+		Math.floor(w / 2), Math.floor(h / 2), "snake");
+	//	apple initialised at random point
+	myApple = new snakeDraw(2, 2, "#FF0000", 
+		(Math.floor( Math.random() * myGameArea.canvas.width )),
+		(Math.floor( Math.random() * myGameArea.canvas.height )), 
+		"apple");
+	myScore = new snakeDraw("15px", "Courier", "#000000", 
+		23, h - 5, "text");
+    myGameArea.start();
+}
+
+var myGameArea = {
+    canvas : document.createElement("canvas"),
+    start : function() {
+        this.canvas.width = w;
+        this.canvas.height = h;
+        this.context = this.canvas.getContext("2d");
+        document.body.insertBefore(this.canvas, 
+			document.body.childNodes[0]);
+        //	need to fuck with time/frames for snake speed
+		//		not sure about the following lines
+		this.frameNo = 0;
+        this.interval = setInterval(updateGameArea, 20);
+        },
+    clear : function() {
+        this.context.clearRect(0, 0, this.canvas.width, 
+			this.canvas.height);
+    }
+	
+}
+
+/*
+	getMousePos : function(canvas, evt) {
+        var rect = myGameArea.canvas.getBoundingClientRect();
+        return {
+			x:(evt.clientX - rect.left), y:(evt.clientY - rect.top)};
+    }
+	*/
+function getMousePos (canvas, e) {
+	var rect = myGameArea.canvas.getBoundingClientRect();
+	return {x:(e.clientX - rect.left), y:(e.clientY - rect.top)};
+}
+
+  
+/*myGameArea.canvas.addEventListener('mousemove', 
+	function(evt) {
+		var mousePos = getMousePos(myGameArea.canvas, evt);
+		var mess
+	}, false);
+*/
+function snakeDraw(width, height, colour, x, y, type) {
+	this.type = type;
+    this.score = 0;
+    this.width = width;
+    this.height = height;
+    this.x = x;
+    this.y = y;
+    this.snakeSpeed = 5;
+	//this.ground = h - 15;
+	//	snakeDir; direction of snake
+	//		left 	down 	right 	up
+	//		0		1		2		3
+	this.snakeDir = 2;
+	//	hopefully each node gets an x and a y, length being score - 3
+	//		starting off with a body of 3, [0] will probably be the head
+	this.snakeBod = [{x:Math.floor(w / 2), y:Math.floor(h / 2)}, 
+		{x:Math.floor(w / 2) - 1, y:Math.floor(h / 2)}, 
+		{x:Math.floor(w / 2) - 2, y:Math.floor(h / 2)}];
+	this.snakeDead = false;
+	
+	//this.update = function() {
+	this.draw = function() {
+        ctx = myGameArea.context;
+        if (this.type == "text") {
+            ctx.font = this.width + " " + this.height;
+            ctx.fillStyle = colour;
+            ctx.fillText(this.text, this.x, this.y);
+        } else if (type == "snake") {
+			for (var i = 0; i < this.snakeBod.length; ++i) {
+				ctx.fillStyle = colour;
+				//console.log("i is " + i);
+				ctx.fillRect(this.snakeBod[i].x - (this.width / 2),
+					this.snakeBod[i].y - (this.height / 2), 
+					this.width, this.height);
+				//	NEEDS PROPER LOGIC
+			}
+		} else if (type == "apple") {
+			ctx.beginPath();
+			ctx.arc(this.x, this.y, ((this.width + this.height) / 2), 
+				0, 2 * Math.PI, false);
+            ctx.fillStyle = colour;
+			ctx.lineWidth = 1;
+			ctx.strokeStyle = colour;
+			ctx.stroke();
+        }
+    }
+	this.newPos = function() {
+		if (!this.snakeDead) {
+			switch (this.snakeDir) {
+				case 0:
+					//	left
+					this.x -= this.snakeSpeed;
+					break;
+				case 1:
+					//	down
+					this.y += this.snakeSpeed;
+					break;
+				case 2:
+					//	right
+					this.x += this.snakeSpeed;
+					break;
+				case 3:
+					//	up
+					this.y -= this.snakeSpeed;
+					break;
+				default:
+					break;
+			}
+			//	shake the body down a place and set above position to body
+			for (var i = 0; i < this.snakeBod.length - 1; ++i) {
+				//		WORKING HERFE FOR SHAKIN THE SNAKE TO NEXT POSITION
+				//		CHECKK THE JS DEBUGGER ON FIREFOX
+				//console.log("about to run osmething");
+				//var scooner = Object.keys(this.snakeBod).length;
+				var scooner = this.snakeBod.length - i - 1;
+				//var scooner = this.snakeBod.length - i;
+				
+				//console.log("scooner's " + scooner);
+				//console.log("snakeBod " + scooner + " is " + snakeBod[scooner].x + ", " + snakeBod[scooner].y);
+				//console.log("snakeBod scooner" + scooner + " is ");
+				//console.log("scooner, len " + this.snakeBod.length + " - " + i + " - 1 = " + (this.snakeBod.length - i - 1));
+				
+				this.snakeBod[scooner].x = this.snakeBod[scooner - 1].x;
+				this.snakeBod[scooner].y = this.snakeBod[scooner - 1].y;
+				
+				
+				//	push is to add new element to array
+				//this.snakeBod.push(
+				
+				//this.snakeBod[snakeBod.length - i + 1] = this.snakeBod[snakeBod.length - i];
+			}
+			this.snakeBod[0].x = this.x;
+			this.snakeBod[0].y = this.y;
+			
+			this.hitWall();
+			//this.crashWith();
+		}
+    }
+    this.hitWall = function() {
+		if (	//	snake hit a wall, i.e. it's next step will be beyond
+		((this.snakeDir == 0) && ((this.x - this.snakeSpeed) < 0))
+		|| ((this.snakeDir == 1) 
+			&& ((this.y + this.snakeSpeed) > this.ground))
+		|| ((this.snakeDir == 2) 
+			&& ((this.x + this.snakeSpeed) > w))
+		|| ((this.snakeDir == 3) && ((this.y - this.snakeSpeed) < 0))
+		) {
+            this.snakeSpeed = 0;
+			this.snakeDead = true;
+        }
+    }
+	
+    this.crashWith = function(otherobj) {
+		//	NEED TO FIGURE OUT SNAKE BODY
+        var myleft = this.x;
+        var myright = this.x + (this.width);
+        var mytop = this.y;
+        var mybottom = this.y + (this.height);
+        var otherleft = otherobj.x;
+        var otherright = otherobj.x + (otherobj.width);
+        var othertop = otherobj.y;
+        var otherbottom = otherobj.y + (otherobj.height);
+        var crash = true;
+        if ((mybottom < othertop) || (mytop > otherbottom) || (myright < otherleft) || (myleft > otherright)) {
+            crash = false;
+        }
+        return crash;
+    }
+	
+	this.eatinApples = function(mode) {
+		//	snaeke needs new body segment
+		//		maybe just like double up on the last point and it'll
+		//		get sorted when the newPos updates after the tail moves,
+		//		either that or like double up on the point that the //		apple was at, maybe even do modes
+		
+		//	mode 0 for a double up on the snake's very end segment
+		if (mode == 0) {
+			this.snakeBod[snakeBod.length + 1] 
+				= this.snakeBod[snakeBod.length];
+		} else if (mode == 1) {
+			
+		}
+		
+	}
+	
+	this.gotEaten = function() {
+		//	apple
+		//		needs to reset / find a new position
+		this.x = (Math.floor(Math.random() * myGameArea.canvas.width));
+		this.y = (Math.floor(Math.random() * myGameArea.canvas.height));
+		colour = (Math.random >= 0.5) ? '#FF0000' : '#00FF00';
+	}
+	
+}
+
+/*
+**	main loop
+*/
+function updateGameArea() {
+	/*
+	**	declarations
+	*/
+	
+	
+	
+	/*
+	**	updates
+	*/
+	
+	//	wall check is done by snake newPos function
+	//		i.e. wall check directly after every move
+	//		seems body hit check after move too
+	
+	myBigSnake.newPos();	/////////////////////////////////////////
+	
+	//	apple eaten
+	if ((myBigSnake.x == myApple.x) && (myBigSnake.y == myApple.y)) {
+		//	snake needs new body segment, after end of body passes maybe
+		myBigSnake.eatinApples(0);
+		//	need a new apple up in here
+		myApple.gotEaten();
+		//	update score
+		myScore.score += 1;
+	}
+
+	//	not sure about frames
+    myGameArea.frameNo += 1;
+	//	possible usefult
+    //if (myGameArea.frameNo == 1 || everyinterval(150)) { }
+	
+	/*
+	**	draws
+	*/
+	//	clear screen
+	myGameArea.clear();
+	//	game grid
+	//myGameArea.context.fillStyle = '#CCCCCC';
+	myGameArea.context.fillStyle = '#000000';
+	var gridThickness = 1;
+	var starter = {x:0, y:0};
+	var ender = {x:(w - 1), y:(ground - 1)};
+	myGameArea.context.fillRect(starter.x, starter.y, w, gridThickness);
+	myGameArea.context.fillRect(starter.x, starter.y, gridThickness, ground);
+	//for (var i = 0; i < w; i += snakeRad + (gridThickness * 2)) {
+	for (var i = 0; i < w; i += 10) {
+		myGameArea.context.fillRect(i, 0, gridThickness, ground);
+		myGameArea.context.fillRect(i + snakeRad + 1, 0, gridThickness, ground);
+//		console.log("rect from " + i + ", 0 and " + (i + snakeRad) + ", 0, w is " + w + ", ground is " + ground);
+//		console.log("i is " + i + ", snakeRad is " + snakeRad + ", i+snakeRad-1 is " + (i += snakeRad - 1));
+//		console.log("ground is " + ground + " width is " + w);
+		if ((i += snakeRad - 1) < ground) {
+			myGameArea.context.fillRect(0, i, w, gridThickness);
+		//if (i < ground) {
+			myGameArea.context.fillRect(0, i + snakeRad + 1, w, gridThickness);
+//			console.log("rect from 0, " + i + " and 0, " + (i + snakeRad) + " width is " + w);
+		} else {
+//			console.log("rect from 0, " + i + " and 0, " + (i + snakeRad) + " width is " + w + ", ground is " + ground);
+		}
+	}
+	myGameArea.context.fillRect(0, ground, w, gridThickness);
+	myGameArea.context.fillRect(w, 0, gridThickness, ground);
+	
+	myGameArea.context.rect(0, 0, w, h);
+	myGameArea.context.strokeStyle = '#0000FF';
+	myGameArea.context.stroke();
+	
+	myBigSnake.draw();
+	myApple.draw();
+	//	border
+	myGameArea.context.fillStyle = '#000000';
+	myGameArea.context.fillRect(0, ground, w, 1);
+	//	snake fella
+	myGameArea.context.rect(1, ground + 1, 19, 19);
+	myGameArea.context.strokeStyle = '#000000';
+	myGameArea.context.stroke();
+	var img = document.getElementById("snake-0");
+    ctx.drawImage(img, 0, ground);
+	//	score
+	myScore.text = myScore.score;
+	myScore.draw();
+	
+	
+}
+
+function everyinterval(n) {
+    if ((myGameArea.frameNo / n) % 1 == 0) {return true;}
+    return false;
+}
+
+function accelerate(n) {
+	//myBigSnake.snakeDir += (myBigSnake.snakeDir == 3) ? 1 : -3;
+	myBigSnake.newPos();
+}
+</script>
+<br>
+<button onmousedown="accelerate()" onmouseup="accelerate()">ACCELERATE</button>
+<p>Use the ACCELERATE button to stay in the air</p>
+<p>How long can you stay alive?</p>
+</body>
+</html>
